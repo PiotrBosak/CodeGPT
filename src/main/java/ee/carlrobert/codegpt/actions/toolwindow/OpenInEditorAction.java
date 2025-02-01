@@ -66,6 +66,10 @@ public class OpenInEditorAction extends AnAction {
                     });
                     FileEditorManager.getInstance(project).openFile(virtualFile, true);
                 }
+
+                var toolWindow = requireNonNull(
+                        ToolWindowManager.getInstance(project).getToolWindow("CodeGPT"));
+                toolWindow.hide();
             }
         } catch (Exception ex) {
             throw new RuntimeException(ex);

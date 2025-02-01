@@ -99,6 +99,20 @@ class PredictionService {
         }
     }
 
+    fun displayInlineDiffWithString(
+        editor: Editor,
+        message: String,
+        isManuallyOpened: Boolean = false
+    ) {
+            runInEdt {
+                CodeSuggestionDiffViewer.displayInlineDiff(
+                    editor,
+                    message,
+                    isManuallyOpened
+                )
+        }
+    }
+
     private fun getPrediction(editor: Editor, request: Request): PredictionResponse? {
         editor.project?.let {
             CodeCompletionProgressNotifier.startLoading(it)

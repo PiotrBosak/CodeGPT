@@ -3,6 +3,7 @@ package ee.carlrobert.codegpt.ui
 import com.intellij.ide.IdeBundle
 import com.intellij.ide.ui.laf.darcula.ui.DarculaButtonUI
 import com.intellij.openapi.actionSystem.ActionPlaces
+import com.intellij.openapi.actionSystem.MouseShortcut.getButton
 import com.intellij.openapi.application.runInEdt
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.event.SelectionEvent
@@ -12,6 +13,7 @@ import com.intellij.openapi.observable.properties.ObservableProperty
 import com.intellij.openapi.observable.util.not
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.ui.popup.util.MinimizeButton
+import com.intellij.platform.ide.bootstrap.hideSplash
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.dsl.builder.AlignX
@@ -22,7 +24,7 @@ import com.intellij.ui.layout.ComponentPredicate
 import com.intellij.util.ui.AsyncProcessIcon
 import com.intellij.util.ui.JBUI
 import ee.carlrobert.codegpt.CodeGPTBundle
-import ee.carlrobert.codegpt.actions.editor.EditCodeCompletionListener
+import ee.carlrobert.codegpt.actions.editor.DiffCompletionListener
 import ee.carlrobert.codegpt.actions.editor.EditCodeSubmissionHandler
 import ee.carlrobert.codegpt.settings.GeneralSettings
 import ee.carlrobert.codegpt.toolwindow.chat.ui.textarea.ModelComboBoxAction
@@ -35,37 +37,23 @@ import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 import javax.swing.JButton
 import javax.swing.JPanel
+import javax.swing.SwingUtilities
 import javax.swing.event.DocumentEvent
 
-data class ObservableProperties(
-    val submitted: AtomicBooleanProperty = AtomicBooleanProperty(false),
-    val accepted: AtomicBooleanProperty = AtomicBooleanProperty(false),
-    val loading: AtomicBooleanProperty = AtomicBooleanProperty(false),
-)
+class EditCodePopoverForDiff(private val editor: Editor) {
 
-class EditCodePopover(private val editor: Editor) {
-
-    private var acceptButton: JButton? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val observableProperties = ObservableProperties()
-    private val submissionHandler = EditCodeSubmissionHandler(editor, observableProperties) { s ->
-        EditCodeCompletionListener(
-            editor,
-            observableProperties,
-            s
-        )
+    private val submissionHandler = EditCodeSubmissionHandler(editor, observableProperties) { _ ->
+        DiffCompletionListener(editor, observableProperties)
     }
-    private val promptTextField = JBTextField("", 40).apply {
+    private val promptTextField: JBTextField = JBTextField("", 40).apply {
         emptyText.appendText(CodeGPTBundle.get("editCodePopover.textField.emptyText"))
         addKeyListener(object : KeyAdapter() {
             override fun keyPressed(e: KeyEvent) {
                 if (e.keyCode == KeyEvent.VK_ENTER) {
-                    e.consume()
-                    if (acceptButton != null && acceptButton!!.isVisible) {
-                        acceptButton!!.doClick()
-                    } else {
-                        handleSubmit()
-                    }
+                    handleSubmit()
+                    popup.cancel()
                 }
             }
         })
@@ -115,7 +103,6 @@ class EditCodePopover(private val editor: Editor) {
                 }
                     .visibleIf(observableProperties.submitted)
                     .enabledIf(observableProperties.loading.not())
-                    .also { c -> acceptButton = c.component }
                 cell(AsyncProcessIcon("edit_code_spinner")).visibleIf(observableProperties.loading)
                 link(CodeGPTBundle.get("shared.discard")) {
                     submissionHandler.handleReject()
