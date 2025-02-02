@@ -1,10 +1,12 @@
 package ee.carlrobert.codegpt.actions.editor;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
+import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.util.ui.FormBuilder;
 import com.intellij.util.ui.JBUI;
 import com.intellij.util.ui.UI;

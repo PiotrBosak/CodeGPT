@@ -1,12 +1,15 @@
 package ee.carlrobert.codegpt.toolwindow.chat;
 
 import static com.intellij.openapi.ui.Messages.OK;
+import static java.util.Objects.requireNonNull;
 
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
+import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.vfs.VfsUtil;
+import com.intellij.openapi.wm.ToolWindowManager;
 import ee.carlrobert.codegpt.EncodingManager;
 import ee.carlrobert.codegpt.completions.ChatCompletionParameters;
 import ee.carlrobert.codegpt.completions.CompletionResponseEventListener;
@@ -78,7 +81,7 @@ abstract class ToolWindowCompletionResponseEventListener implements
                 ApplicationManager.getApplication().invokeLater(() -> {
                     try (AutoCloseable a = CommandProcessor.getInstance().withUndoTransparentAction()) {
                         ApplicationManager.getApplication().runWriteAction(() -> {
-                            document.insertString(document.getTextLength(), "\n\n");
+                            document.insertString(document.getTextLength(), "\n## CodeGpt\n");
                             virtualFile.refresh(false, false);
                         });
                     } catch (Exception e) {
