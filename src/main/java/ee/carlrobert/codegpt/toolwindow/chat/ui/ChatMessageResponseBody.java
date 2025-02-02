@@ -273,7 +273,6 @@ public class ChatMessageResponseBody extends JPanel {
                 if (currentlyProcessedEditorPanel == null) {
                     prepareProcessingCode(code, codeBlock.getInfo().toString());
                 }
-                // TODOPB tutaj
                 EditorUtil.updateEditorDocument(currentlyProcessedEditorPanel.getEditor(), code);
             }
         }
@@ -284,11 +283,6 @@ public class ChatMessageResponseBody extends JPanel {
         if (currentlyProcessedTextPane == null) {
             prepareProcessingText(caretVisible);
         }
-        // TODOPB tutaj
-    /*
-    // NOTES
-     wydaje się że w tych dwóch miejscach trzeba coś podmienić
-    */
         currentlyProcessedTextPane.setText(html);
     }
 
