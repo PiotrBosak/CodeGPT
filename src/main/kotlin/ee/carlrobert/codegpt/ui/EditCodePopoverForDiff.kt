@@ -44,8 +44,8 @@ class EditCodePopoverForDiff(private val editor: Editor) {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val observableProperties = ObservableProperties()
-    private val submissionHandler = EditCodeSubmissionHandler(editor, observableProperties) { _ ->
-        DiffCompletionListener(editor, observableProperties)
+    private val submissionHandler = EditCodeSubmissionHandler(editor, observableProperties) { s ->
+        DiffCompletionListener(editor, observableProperties, s)
     }
     private val promptTextField: JBTextField = JBTextField("", 40).apply {
         emptyText.appendText(CodeGPTBundle.get("editCodePopover.textField.emptyText"))

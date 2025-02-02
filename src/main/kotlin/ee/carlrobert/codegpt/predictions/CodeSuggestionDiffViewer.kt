@@ -313,6 +313,19 @@ class CodeSuggestionDiffViewer(
     }
 }
 
+fun createSimpleDiffRequestWithString(editor: Editor, previousRevision: String, nextRevision: String): SimpleDiffRequest {
+    val project = editor.project
+    val virtualFile = editor.virtualFile
+    val tempDiffFile = LightVirtualFile(virtualFile.name, nextRevision)
+    val diffContentFactory = DiffContentFactory.getInstance()
+    return SimpleDiffRequest(
+        null,
+        diffContentFactory.create(project, virtualFile),
+        diffContentFactory.create(project, tempDiffFile),
+        null,
+        null
+    )
+}
 fun createSimpleDiffRequest(editor: Editor, nextRevision: String): SimpleDiffRequest {
     val project = editor.project
     val virtualFile = editor.virtualFile

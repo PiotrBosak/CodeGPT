@@ -1,4 +1,5 @@
 package ee.carlrobert.codegpt.actions.editor
+
 import com.intellij.ide.BrowserUtil
 import com.intellij.notification.NotificationAction
 import com.intellij.notification.NotificationType
@@ -23,6 +24,7 @@ import okhttp3.sse.EventSource
 class DiffCompletionListener(
     private val editor: Editor,
     private val observableProperties: ObservableProperties,
+    private val selectionTextRange: TextRange
 ) : CompletionEventListener<String> {
 
     val predictionService = PredictionService()
@@ -33,7 +35,18 @@ class DiffCompletionListener(
     }
 
     override fun onComplete(messageBuilder: StringBuilder) {
-        predictionService.displayInlineDiffWithString(editor, messageBuilder.toString())
+        val message = messageBuilder.toString()
+        predictionService.displayInlineDiffWithString(
+            editor,
+            getReplacedText(editor, selectionTextRange.startOffset, selectionTextRange.endOffset, message)
+        )
+    }
+
+    fun getReplacedText(editor: Editor, startOffset: Int, endOffset: Int, newText: String): String  {
+        val documentText = editor.document.text
+        val prefix = documentText.substring(0, startOffset)
+        val suffix = documentText.substring(endOffset)
+        return prefix + newText + suffix
     }
 
     override fun onError(error: ErrorDetails, ex: Throwable) {
@@ -47,78 +60,4 @@ class DiffCompletionListener(
             },
         )
     }
-
-//    private fun updateHighlighter(editor: Editor) {
-//        cleanupHighlighter()
-//
-//        val document = editor.document
-//        val lineNumber = document.getLineNumber(editor.caretModel.offset)
-//        currentHighlighter = editor.markupModel.addRangeHighlighter(
-//            document.getLineStartOffset(lineNumber),
-//            document.getLineEndOffset(lineNumber),
-//            HighlighterLayer.SELECTION - 1,
-//            TextAttributes().apply {
-//                effectType = EffectType.BOXED
-//                effectColor =
-//                    JBColor.namedColor("PsiViewer.referenceHighlightColor", 0x6A7B15)
-//                errorStripeColor = effectColor
-//            },
-//            HighlighterTargetArea.EXACT_RANGE
-//        )
-//    }
-//
-//    private fun handleDiff(message: String) {
-//        val document = editor.document
-//        val startOffset = selectionTextRange.startOffset
-//        val endOffset = selectionTextRange.endOffset
-//        runUndoTransparentWriteAction {
-//            val remainingOriginalLength = endOffset - (startOffset + replacedLength)
-//            if (remainingOriginalLength > 0) {
-//                document.replaceString(
-//                    startOffset + replacedLength,
-//                    startOffset + replacedLength + minOf(
-//                        message.length,
-//                        remainingOriginalLength
-//                    ),
-//                    StringUtil.convertLineSeparators(message)
-//                )
-//            } else {
-//                document.insertString(startOffset + replacedLength, message)
-//            }
-//        }
-//
-//        replacedLength += message.length
-//        editor.caretModel.moveToOffset(startOffset + replacedLength)
-//        updateHighlighter(editor)
-//    }
-//
-//    private fun cleanupAndFormat() {
-//        val project = editor.project ?: return
-//        val document = editor.document
-//        val psiDocumentManager = project.service<PsiDocumentManager>()
-//        val psiFile = psiDocumentManager.getPsiFile(document) ?: return
-//        val startOffset = selectionTextRange.startOffset
-//        val endOffset = selectionTextRange.endOffset
-//        val newEndOffset = startOffset + replacedLength
-//
-//        runWriteCommandAction(project) {
-//            if (newEndOffset < endOffset) {
-//                document.deleteString(newEndOffset, endOffset)
-//            }
-//            psiDocumentManager.commitDocument(document)
-//            project.service<CodeStyleManager>().reformatText(
-//                psiFile,
-//                listOf(TextRange(startOffset, newEndOffset))
-//            )
-//        }
-//
-//        editor.caretModel.moveToOffset(newEndOffset)
-//        psiDocumentManager.doPostponedOperationsAndUnblockDocument(document)
-//        cleanupHighlighter()
-//    }
-//
-//    private fun cleanupHighlighter() {
-//        currentHighlighter?.let { editor.markupModel.removeHighlighter(it) }
-//        currentHighlighter = null
-//    }
 }

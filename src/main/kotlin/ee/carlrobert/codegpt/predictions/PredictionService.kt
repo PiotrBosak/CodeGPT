@@ -173,11 +173,11 @@ class PredictionService {
         return predictionRequest
     }
 
-    private fun createDirectPredictionRequest(editor: Editor): DirectPredictionRequest {
-        val predictionRequest = DirectPredictionRequest()
-        setDefaultParams(editor, predictionRequest)
-        return predictionRequest
-    }
+private fun createDirectPredictionRequest(editor: Editor): DirectPredictionRequest {
+    val predictionRequest = DirectPredictionRequest()
+    setDefaultParams(editor, predictionRequest)
+    return predictionRequest
+}
 
     private fun setDefaultParams(editor: Editor, request: PredictionRequest, offset: Int? = null) {
         val messages: MutableList<OpenAIChatCompletionStandardMessage> = mutableListOf()
