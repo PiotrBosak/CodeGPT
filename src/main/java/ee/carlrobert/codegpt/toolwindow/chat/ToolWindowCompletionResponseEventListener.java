@@ -3,13 +3,11 @@ package ee.carlrobert.codegpt.toolwindow.chat;
 import static com.intellij.openapi.ui.Messages.OK;
 import static java.util.Objects.requireNonNull;
 
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.command.CommandProcessor;
+import com.intellij.openapi.application.*;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
-import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.wm.ToolWindowManager;
 import ee.carlrobert.codegpt.EncodingManager;
 import ee.carlrobert.codegpt.completions.ChatCompletionParameters;
 import ee.carlrobert.codegpt.completions.CompletionResponseEventListener;
@@ -25,9 +23,11 @@ import ee.carlrobert.codegpt.toolwindow.ui.UserMessagePanel;
 import ee.carlrobert.codegpt.ui.OverlayUtil;
 import ee.carlrobert.codegpt.ui.textarea.UserInputPanel;
 import ee.carlrobert.llm.client.openai.completion.ErrorDetails;
+import kotlin.Unit;
 
 import java.io.File;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.Timer;
 
 abstract class ToolWindowCompletionResponseEventListener implements
@@ -70,28 +70,22 @@ abstract class ToolWindowCompletionResponseEventListener implements
 
     @Override
     public void handleRequestOpen() {
-        try {
-            var homeDirectory = System.getProperty("user.home");
-            var file = new File(homeDirectory + "/code-gpt-output.md");
-            var documentManager = FileDocumentManager.getInstance();
-            var virtualFile = VfsUtil.findFileByIoFile(file, true);
+        var homeDirectory = System.getProperty("user.home");
+        var file = new File(homeDirectory + "/code-gpt-output.md");
+        var documentManager = FileDocumentManager.getInstance();
+        var virtualFile = VfsUtil.findFileByIoFile(file, true);
+        ActionsKt.runReadAction(() -> {
+            assert virtualFile != null;
             var document = documentManager.getDocument(virtualFile);
-            if (document != null) {
-                // TODOPB potencjalnie się może kiedyś wyjebać
-                ApplicationManager.getApplication().invokeLater(() -> {
-                    try (AutoCloseable a = CommandProcessor.getInstance().withUndoTransparentAction()) {
-                        ApplicationManager.getApplication().runWriteAction(() -> {
-                            document.insertString(document.getTextLength(), "\n## CodeGpt\n");
-                            virtualFile.refresh(false, false);
-                        });
-                    } catch (Exception e) {
-                        System.out.println("aa");
-                    }
-                });
-                updateTimer.start();
-            }
-        } catch (Exception e) {
-        }
+            ActionsKt.runWriteAction(() -> {
+                assert document != null;
+                document.insertString(document.getTextLength(), "\n## CodeGpt\n");
+                virtualFile.refresh(false, false);
+                return Unit.INSTANCE;
+            });
+            return Unit.INSTANCE;
+        });
+        updateTimer.start();
     }
 
     @Override
