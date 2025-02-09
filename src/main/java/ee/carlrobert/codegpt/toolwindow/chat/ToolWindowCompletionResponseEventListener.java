@@ -79,7 +79,7 @@ abstract class ToolWindowCompletionResponseEventListener implements
             var document = documentManager.getDocument(virtualFile);
             ActionsKt.runWriteAction(() -> {
                 assert document != null;
-                document.insertString(document.getTextLength(), "\n## CodeGpt\n");
+                document.insertString(document.getTextLength(), "\n## AI\n");
                 virtualFile.refresh(false, false);
                 return Unit.INSTANCE;
             });
@@ -143,6 +143,22 @@ abstract class ToolWindowCompletionResponseEventListener implements
     @Override
     public void handleCompleted(String fullMessage, ChatCompletionParameters callParameters) {
         conversationService.saveMessage(fullMessage, callParameters);
+
+        var homeDirectory = System.getProperty("user.home");
+        var file = new File(homeDirectory + "/code-gpt-output.md");
+        var documentManager = FileDocumentManager.getInstance();
+        var virtualFile = VfsUtil.findFileByIoFile(file, true);
+        ActionsKt.runReadAction(() -> {
+            assert virtualFile != null;
+            var document = documentManager.getDocument(virtualFile);
+            ActionsKt.runWriteAction(() -> {
+                assert document != null;
+                document.insertString(document.getTextLength(), "\n## End AI\n");
+                virtualFile.refresh(false, false);
+                return Unit.INSTANCE;
+            });
+            return Unit.INSTANCE;
+        });
 
         ApplicationManager.getApplication().invokeLater(() -> {
             try {

@@ -153,6 +153,12 @@
                   class="ee.carlrobert.codegpt.actions.editor.AskQuestionAction">
                     <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift Q" replace-all="true"/>
                 </action>
+                <action
+                        id="CodeGPT.MyAskQuestion"
+                        text="My Ask Question"
+                        class="ee.carlrobert.codegpt.actions.editor.MyAskQuestionAction">
+                    <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift Q" replace-all="true"/>
+                </action>
                 <separator/>
                 <group id="CodeGPT.MyEditorActionsGroup"
                   text="My Actions"

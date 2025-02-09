@@ -126,7 +126,6 @@ public class ChatMessageResponseBody extends JPanel {
     }
 
     public void updateMessage(String partialMessage) {
-        try {
             var homeDirectory = System.getProperty("user.home");
             var file = new File(homeDirectory + "/code-gpt-output.md");
             var documentManager = FileDocumentManager.getInstance();
@@ -139,9 +138,6 @@ public class ChatMessageResponseBody extends JPanel {
                     return 0;
                 });
             }
-        } catch (Exception e) {
-            System.out.println("aa");
-        }
         for (var item : streamParser.parse(partialMessage)) {
             processResponse(item.response(), CODE.equals(item.type()), true);
         }
