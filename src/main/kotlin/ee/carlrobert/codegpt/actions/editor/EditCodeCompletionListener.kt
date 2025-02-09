@@ -14,6 +14,8 @@ import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.ui.JBColor
+import ee.carlrobert.codegpt.codecompletions.CompletionProgressNotifier
+import ee.carlrobert.codegpt.toolwindow.chat.ThinkingOutputParser
 import ee.carlrobert.codegpt.ui.ObservableProperties
 import ee.carlrobert.codegpt.ui.OverlayUtil
 import ee.carlrobert.llm.client.openai.completion.ErrorDetails
@@ -28,9 +30,13 @@ class EditCodeCompletionListener(
 
     private var replacedLength = 0
     private var currentHighlighter: RangeHighlighter? = null
+    private val thinkingOutputParser = ThinkingOutputParser()
 
     override fun onMessage(message: String, eventSource: EventSource) {
-        runInEdt { handleDiff(message) }
+        val processedChunk = thinkingOutputParser.processChunk(message)
+        if (processedChunk.isNotEmpty() && thinkingOutputParser.isFinished) {
+            runInEdt { handleDiff(processedChunk) }
+        }
     }
 
     override fun onComplete(messageBuilder: StringBuilder) {
@@ -40,12 +46,10 @@ class EditCodeCompletionListener(
             }
             cleanupAndFormat()
         }
-        observableProperties.loading.set(false)
+        stopLoading()
     }
 
     override fun onError(error: ErrorDetails, ex: Throwable) {
-        observableProperties.loading.set(false)
-
         OverlayUtil.showNotification(
             error.message,
             NotificationType.ERROR,
@@ -53,6 +57,14 @@ class EditCodeCompletionListener(
                 BrowserUtil.open("https://codegpt.ee/#pricing")
             },
         )
+        stopLoading()
+    }
+
+    private fun stopLoading() {
+        observableProperties.loading.set(false)
+        editor.project?.let {
+            CompletionProgressNotifier.update(it, false)
+        }
     }
 
     private fun updateHighlighter(editor: Editor) {

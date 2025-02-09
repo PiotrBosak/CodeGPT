@@ -6,18 +6,16 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import ee.carlrobert.codegpt.EncodingManager
 import ee.carlrobert.codegpt.conversations.message.Message
-import ee.carlrobert.codegpt.ui.textarea.header.*
-import ee.carlrobert.codegpt.util.EditorUtil
+import ee.carlrobert.codegpt.ui.textarea.header.tag.*
 import ee.carlrobert.codegpt.util.GitUtil
-import ee.carlrobert.codegpt.util.file.FileUtil.getFileExtension
 import git4idea.GitCommit
 
 object TagProcessorFactory {
 
-    fun getProcessor(project: Project, tagDetails: HeaderTagDetails): TagProcessor {
+    fun getProcessor(project: Project, tagDetails: TagDetails): TagProcessor {
         return when (tagDetails) {
             is FileTagDetails -> FileTagProcessor()
-            is SelectionTagDetails -> SelectionTagProcessor(project)
+            is SelectionTagDetails -> SelectionTagProcessor()
             is DocumentationTagDetails -> DocumentationTagProcessor()
             is PersonaTagDetails -> PersonaTagProcessor()
             is FolderTagDetails -> FolderTagProcessor()
@@ -32,7 +30,7 @@ object TagProcessorFactory {
 class FileTagProcessor : TagProcessor {
     override fun process(
         message: Message,
-        tagDetails: HeaderTagDetails,
+        tagDetails: TagDetails,
         promptBuilder: StringBuilder
     ) {
         if (tagDetails !is FileTagDetails) {
@@ -45,22 +43,26 @@ class FileTagProcessor : TagProcessor {
     }
 }
 
-class SelectionTagProcessor(private val project: Project) : TagProcessor {
+class SelectionTagProcessor : TagProcessor {
     override fun process(
         message: Message,
-        tagDetails: HeaderTagDetails,
+        tagDetails: TagDetails,
         promptBuilder: StringBuilder
     ) {
-        if (tagDetails !is SelectionTagDetails) {
+        val selectionTagDetails = tagDetails as? SelectionTagDetails ?: return
+        if (selectionTagDetails.selectedText.isNullOrEmpty()) {
             return
         }
 
-        EditorUtil.getSelectedEditor(project)?.let { selectedEditor ->
-            val fileExtension = getFileExtension(selectedEditor.virtualFile.name)
-            promptBuilder
-                .append("\n```$fileExtension\n")
-                .append(tagDetails.selectedText)
-                .append("\n```\n")
+        promptBuilder
+            .append("\n```${tagDetails.virtualFile.extension}\n")
+            .append(selectionTagDetails.selectedText)
+            .append("\n```\n")
+
+        selectionTagDetails.selectionModel.let {
+            if (it.hasSelection()) {
+                it.removeSelection()
+            }
         }
     }
 }
@@ -68,7 +70,7 @@ class SelectionTagProcessor(private val project: Project) : TagProcessor {
 class DocumentationTagProcessor : TagProcessor {
     override fun process(
         message: Message,
-        tagDetails: HeaderTagDetails,
+        tagDetails: TagDetails,
         promptBuilder: StringBuilder
     ) {
         if (tagDetails !is DocumentationTagDetails) {
@@ -81,7 +83,7 @@ class DocumentationTagProcessor : TagProcessor {
 class PersonaTagProcessor : TagProcessor {
     override fun process(
         message: Message,
-        tagDetails: HeaderTagDetails,
+        tagDetails: TagDetails,
         promptBuilder: StringBuilder
     ) {
         if (tagDetails !is PersonaTagDetails) {
@@ -94,7 +96,7 @@ class PersonaTagProcessor : TagProcessor {
 class FolderTagProcessor : TagProcessor {
     override fun process(
         message: Message,
-        tagDetails: HeaderTagDetails,
+        tagDetails: TagDetails,
         promptBuilder: StringBuilder
     ) {
         if (tagDetails !is FolderTagDetails) {
@@ -121,7 +123,7 @@ class FolderTagProcessor : TagProcessor {
 class WebTagProcessor : TagProcessor {
     override fun process(
         message: Message,
-        tagDetails: HeaderTagDetails,
+        tagDetails: TagDetails,
         promptBuilder: StringBuilder
     ) {
         if (tagDetails !is WebTagDetails) {
@@ -134,7 +136,7 @@ class WebTagProcessor : TagProcessor {
 class GitCommitTagProcessor(private val project: Project) : TagProcessor {
     override fun process(
         message: Message,
-        tagDetails: HeaderTagDetails,
+        tagDetails: TagDetails,
         promptBuilder: StringBuilder
     ) {
         if (tagDetails !is GitCommitTagDetails) {
@@ -168,7 +170,7 @@ class GitCommitTagProcessor(private val project: Project) : TagProcessor {
 class CurrentGitChangesTagProcessor(private val project: Project) : TagProcessor {
     override fun process(
         message: Message,
-        tagDetails: HeaderTagDetails,
+        tagDetails: TagDetails,
         promptBuilder: StringBuilder
     ) {
         if (tagDetails !is CurrentGitChangesTagDetails) {

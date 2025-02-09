@@ -16,13 +16,17 @@ import com.intellij.openapi.ui.SimpleToolWindowPanel;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.ui.components.ActionLink;
 import com.intellij.util.ui.JBUI;
+import com.intellij.util.ui.JBUI.CurrentTheme.Link;
+import com.intellij.util.ui.components.BorderLayoutPanel;
 import ee.carlrobert.codegpt.CodeGPTKeys;
 import ee.carlrobert.codegpt.actions.toolwindow.ClearChatWindowAction;
 import ee.carlrobert.codegpt.actions.toolwindow.CreateNewConversationAction;
 import ee.carlrobert.codegpt.actions.toolwindow.OpenInEditorAction;
+import ee.carlrobert.codegpt.conversations.Conversation;
 import ee.carlrobert.codegpt.conversations.ConversationService;
 import ee.carlrobert.codegpt.conversations.ConversationsState;
 import ee.carlrobert.codegpt.settings.GeneralSettings;
+import ee.carlrobert.codegpt.settings.prompts.PersonaPromptDetailsState;
 import ee.carlrobert.codegpt.settings.prompts.PromptsConfigurable;
 import ee.carlrobert.codegpt.settings.prompts.PromptsSettings;
 import ee.carlrobert.codegpt.settings.service.ProviderChangeNotifier;
@@ -31,18 +35,15 @@ import ee.carlrobert.codegpt.settings.service.codegpt.CodeGPTUserDetailsNotifier
 import ee.carlrobert.codegpt.toolwindow.chat.ui.ToolWindowFooterNotification;
 import ee.carlrobert.codegpt.toolwindow.chat.ui.textarea.AttachImageNotifier;
 import ee.carlrobert.llm.client.codegpt.PricingPlan;
-import java.awt.BorderLayout;
 import java.nio.file.Path;
-import javax.swing.BoxLayout;
 import javax.swing.JComponent;
-import javax.swing.JPanel;
 import org.jetbrains.annotations.NotNull;
 
 public class ChatToolWindowPanel extends SimpleToolWindowPanel {
 
   private final ToolWindowFooterNotification imageFileAttachmentNotification;
   private final ActionLink upgradePlanLink;
-  private ChatToolWindowTabbedPane tabbedPane;
+  private final ChatToolWindowTabbedPane tabbedPane;
 
   public ChatToolWindowPanel(
       @NotNull Project project,
@@ -57,8 +58,25 @@ public class ChatToolWindowPanel extends SimpleToolWindowPanel {
     upgradePlanLink.setExternalLinkIcon();
     upgradePlanLink.setVisible(false);
 
-    init(project, parentDisposable);
+    var tabPanel = new ChatToolWindowTabPanel(project, getConversation());
+    tabbedPane = new ChatToolWindowTabbedPane(parentDisposable);
+    tabbedPane.addNewTab(tabPanel);
 
+    initToolWindowPanel(project);
+    initializeEventListeners(project);
+
+    Disposer.register(parentDisposable, tabPanel);
+  }
+
+  private Conversation getConversation() {
+    var conversation = ConversationsState.getCurrentConversation();
+    if (conversation == null) {
+      return ConversationService.getInstance().startConversation();
+    }
+    return conversation;
+  }
+
+  private void initializeEventListeners(Project project) {
     var messageBusConnection = project.getMessageBus().connect();
     messageBusConnection.subscribe(AttachImageNotifier.IMAGE_ATTACHMENT_FILE_PATH_TOPIC,
         (AttachImageNotifier) filePath -> imageFileAttachmentNotification.show(
@@ -96,14 +114,7 @@ public class ChatToolWindowPanel extends SimpleToolWindowPanel {
     project.putUserData(CodeGPTKeys.IMAGE_ATTACHMENT_FILE_PATH, "");
   }
 
-  private void init(Project project, Disposable parentDisposable) {
-    var conversation = ConversationsState.getCurrentConversation();
-    if (conversation == null) {
-      conversation = ConversationService.getInstance().startConversation();
-    }
-
-    var tabPanel = new ChatToolWindowTabPanel(project, conversation);
-    tabbedPane = createTabbedPane(tabPanel, parentDisposable);
+  private void initToolWindowPanel(Project project) {
     Runnable onAddNewTab = () -> {
       tabbedPane.addNewTab(new ChatToolWindowTabPanel(
           project,
@@ -111,19 +122,15 @@ public class ChatToolWindowPanel extends SimpleToolWindowPanel {
       repaint();
       revalidate();
     };
-    var actionToolbarPanel = new JPanel(new BorderLayout());
-    actionToolbarPanel.add(
-        createActionToolbar(project, tabbedPane, onAddNewTab).getComponent(),
-        BorderLayout.LINE_START);
-    actionToolbarPanel.add(upgradePlanLink, BorderLayout.LINE_END);
 
-    setToolbar(actionToolbarPanel);
-    var notificationContainer = new JPanel(new BorderLayout());
-    notificationContainer.setLayout(new BoxLayout(notificationContainer, BoxLayout.PAGE_AXIS));
-    notificationContainer.add(imageFileAttachmentNotification);
-    setContent(JBUI.Panels.simplePanel(tabbedPane).addToBottom(notificationContainer));
-
-    Disposer.register(parentDisposable, tabPanel);
+    ApplicationManager.getApplication().invokeLater(() -> {
+      setToolbar(new BorderLayoutPanel()
+          .addToLeft(createActionToolbar(project, tabbedPane, onAddNewTab).getComponent())
+          .addToRight(upgradePlanLink));
+      setContent(new BorderLayoutPanel()
+          .addToCenter(tabbedPane)
+          .addToBottom(imageFileAttachmentNotification));
+    });
   }
 
   private ActionToolbar createActionToolbar(
@@ -144,15 +151,7 @@ public class ChatToolWindowPanel extends SimpleToolWindowPanel {
     toolbar.setTargetComponent(this);
     return toolbar;
   }
-
-  private ChatToolWindowTabbedPane createTabbedPane(
-      ChatToolWindowTabPanel tabPanel,
-      Disposable parentDisposable) {
-    var tabbedPane = new ChatToolWindowTabbedPane(parentDisposable);
-    tabbedPane.addNewTab(tabPanel);
-    return tabbedPane;
-  }
-
+  
   private static class SelectedPersonaActionLink extends DumbAwareAction implements
       CustomComponentAction {
 
@@ -162,16 +161,30 @@ public class ChatToolWindowPanel extends SimpleToolWindowPanel {
       this.project = project;
     }
 
+    private void showPromptsSettingsDialog() {
+      ShowSettingsUtil.getInstance()
+          .showSettingsDialog(project, PromptsConfigurable.class);
+    }
+
     @Override
     @NotNull
     public JComponent createCustomComponent(
         @NotNull Presentation presentation,
         @NotNull String place) {
-      var link = new ActionLink(getSelectedPersonaName(), (e) -> {
-        ShowSettingsUtil.getInstance()
-            .showSettingsDialog(project, PromptsConfigurable.class);
+      var selectedPersona = getSelectedPersona();
+      var personaName = selectedPersona.getName();
+      if (personaName == null) {
+        personaName = "No persona selected";
+      }
+
+      var link = new ActionLink(personaName, (e) -> {
+        showPromptsSettingsDialog();
       });
       link.setExternalLinkIcon();
+      if (selectedPersona.getDisabled()) {
+        link.setToolTipText("Persona is disabled");
+        link.setForeground(JBUI.CurrentTheme.Label.disabledForeground());
+      }
       link.setFont(JBUI.Fonts.smallFont());
       link.setBorder(JBUI.Borders.empty(0, 4));
       return link;
@@ -181,19 +194,32 @@ public class ChatToolWindowPanel extends SimpleToolWindowPanel {
     public void updateCustomComponent(
         @NotNull JComponent component,
         @NotNull Presentation presentation) {
-      ((ActionLink) component).setText(getSelectedPersonaName());
+      if (component instanceof ActionLink actionLink) {
+        var selectedPersona = getSelectedPersona();
+        var personaName = selectedPersona.getName();
+        if (personaName == null) {
+          personaName = "No persona selected";
+        }
+
+        if (selectedPersona.getDisabled()) {
+          actionLink.setText(personaName + " (disabled)");
+          actionLink.setForeground(Link.Foreground.DISABLED);
+        } else {
+          actionLink.setText(personaName);
+          actionLink.setForeground(Link.Foreground.ENABLED);
+        }
+      }
     }
 
     @Override
     public void actionPerformed(@NotNull AnActionEvent e) {
     }
 
-    private String getSelectedPersonaName() {
+    private PersonaPromptDetailsState getSelectedPersona() {
       return ApplicationManager.getApplication().getService(PromptsSettings.class)
           .getState()
           .getPersonas()
-          .getSelectedPersona()
-          .getName();
+          .getSelectedPersona();
     }
   }
 }

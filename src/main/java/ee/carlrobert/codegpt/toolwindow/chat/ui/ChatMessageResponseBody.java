@@ -38,14 +38,17 @@ import ee.carlrobert.codegpt.events.AnalysisFailedEventDetails;
 import ee.carlrobert.codegpt.events.CodeGPTEvent;
 import ee.carlrobert.codegpt.events.EventDetails;
 import ee.carlrobert.codegpt.events.WebSearchEventDetails;
+import ee.carlrobert.codegpt.settings.GeneralSettings;
 import ee.carlrobert.codegpt.settings.GeneralSettingsConfigurable;
+import ee.carlrobert.codegpt.settings.service.ServiceType;
 import ee.carlrobert.codegpt.telemetry.TelemetryAction;
 import ee.carlrobert.codegpt.toolwindow.chat.StreamParser;
+import ee.carlrobert.codegpt.toolwindow.chat.ThinkingOutputParser;
 import ee.carlrobert.codegpt.toolwindow.chat.editor.ResponseEditorPanel;
 import ee.carlrobert.codegpt.toolwindow.chat.editor.actions.CopyAction;
 import ee.carlrobert.codegpt.toolwindow.ui.ResponseBodyProgressPanel;
 import ee.carlrobert.codegpt.toolwindow.ui.WebpageList;
-import ee.carlrobert.codegpt.ui.OverlayUtil;
+import ee.carlrobert.codegpt.ui.ThoughtProcessPanel;
 import ee.carlrobert.codegpt.ui.UIUtil;
 import ee.carlrobert.codegpt.util.EditorUtil;
 import ee.carlrobert.codegpt.util.MarkdownUtil;
@@ -54,6 +57,7 @@ import java.awt.BorderLayout;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.util.Objects;
+import java.util.stream.Stream;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
 import javax.swing.JEditorPane;
@@ -69,7 +73,8 @@ public class ChatMessageResponseBody extends JPanel {
     private final Project project;
     private final Disposable parentDisposable;
     private final StreamParser streamParser;
-    private final boolean readOnly;
+    private final ThinkingOutputParser thinkingOutputParser;
+  private final boolean readOnly;
     private final DefaultListModel<WebSearchEventDetails> webpageListModel = new DefaultListModel<>();
     private final WebpageList webpageList = new WebpageList(webpageListModel);
     private final ResponseBodyProgressPanel progressPanel = new ResponseBodyProgressPanel();
@@ -78,24 +83,23 @@ public class ChatMessageResponseBody extends JPanel {
     private JPanel webpageListPanel;
 
     public ChatMessageResponseBody(Project project, Disposable parentDisposable) {
-        this(project, false, false, false, false, parentDisposable);
+        this(project, false, false, false, parentDisposable);
     }
 
     public ChatMessageResponseBody(
             Project project,
-            boolean withGhostText,
-            boolean readOnly,
+            boolean  readOnly,
             boolean webSearchIncluded,
             boolean withProgress,
             Disposable parentDisposable) {
         this.project = project;
         this.parentDisposable = parentDisposable;
-        this.streamParser = new StreamParser();
+        this.streamParser = new StreamParser();this.thinkingOutputParser = new ThinkingOutputParser();
         this.readOnly = readOnly;
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setOpaque(false);
 
-        if (withProgress) {
+        if (GeneralSettings.getSelectedService() == ServiceType.CODEGPT) {if (withProgress) {
             add(progressPanel);
         }
 
@@ -103,12 +107,8 @@ public class ChatMessageResponseBody extends JPanel {
             webpageListPanel = createWebpageListPanel(webpageList);
             add(webpageListPanel);
         }
+}
 
-        if (withGhostText) {
-            prepareProcessingText(!readOnly);
-            currentlyProcessedTextPane.setText(
-                    "<html><p style=\"margin-top: 4px; margin-bottom: 8px;\">&#8205;</p></html>");
-        }
     }
 
     public ChatMessageResponseBody withResponse(@NotNull String response) {
@@ -125,23 +125,36 @@ public class ChatMessageResponseBody extends JPanel {
         return this;
     }
 
-    public void updateMessage(String partialMessage) {
-            var homeDirectory = System.getProperty("user.home");
-            var file = new File(homeDirectory + "/code-gpt-output.md");
-            var documentManager = FileDocumentManager.getInstance();
-            var virtualFile = VfsUtil.findFileByIoFile(file, true);
-            var document = documentManager.getDocument(virtualFile);
-            if (document != null) {
-                com.intellij.openapi.application.ActionsKt.runUndoTransparentWriteAction(() -> {
-                    document.insertString(document.getTextLength(), partialMessage);
-                    virtualFile.refresh(false, false);
-                    return 0;
-                });
-            }
-        for (var item : streamParser.parse(partialMessage)) {
-            processResponse(item.response(), CODE.equals(item.type()), true);
-        }
+  public void updateMessage(String partialMessage) {
+
+      var homeDirectory = System.getProperty("user.home");
+      var file = new File(homeDirectory + "/code-gpt-output.md");
+      var documentManager = FileDocumentManager.getInstance();
+      var virtualFile = VfsUtil.findFileByIoFile(file, true);
+      var document = documentManager.getDocument(virtualFile);
+      if (document != null) {
+          com.intellij.openapi.application.ActionsKt.runUndoTransparentWriteAction(() -> {
+              document.insertString(document.getTextLength(), partialMessage);
+              virtualFile.refresh(false, false);
+              return 0;
+          });
+      }
+      for (var item : streamParser.parse(partialMessage)) {
+          processResponse(item.response(), CODE.equals(item.type()), true);
+      }
+    if (partialMessage.isEmpty()) {
+      return;
     }
+
+    var processedPartialMessage = processThinkingOutput(partialMessage);
+    if (processedPartialMessage.isEmpty()) {
+      return;
+    }
+
+    for (var item : streamParser.parse(processedPartialMessage)) {
+      processResponse(item.response(), CODE.equals(item.type()), true);
+    }
+  }
 
     public void displayMissingCredential() {
         ApplicationManager.getApplication().invokeLater(() -> {
@@ -251,7 +264,34 @@ public class ChatMessageResponseBody extends JPanel {
         revalidate();
     }
 
-    private void processResponse(String markdownInput, boolean codeResponse, boolean caretVisible) {
+    private String processThinkingOutput(String partialMessage) {
+    var processedChunk = thinkingOutputParser.processChunk(partialMessage);
+    var thoughtProcessPanel = getExistingThoughtProcessPanel();
+
+    if (thinkingOutputParser.isThinking()) {
+      progressPanel.setVisible(false);
+
+      if (thoughtProcessPanel == null) {
+        thoughtProcessPanel = new ThoughtProcessPanel();
+        add(thoughtProcessPanel);
+      } else {
+        thoughtProcessPanel.updateText(thinkingOutputParser.getThoughtProcess());
+      }
+    }
+
+    if (thoughtProcessPanel != null && thinkingOutputParser.isFinished()) {
+      thoughtProcessPanel.setFinished();
+    }
+
+    return processedChunk;
+  }
+
+  private ThoughtProcessPanel getExistingThoughtProcessPanel() {
+    return (ThoughtProcessPanel) Stream.of(getComponents())
+        .filter(it -> it instanceof ThoughtProcessPanel)
+        .findFirst()
+        .orElse(null);
+  }private void processResponse(String markdownInput, boolean codeResponse, boolean caretVisible) {
         if (codeResponse) {
             processCode(markdownInput);
         } else {

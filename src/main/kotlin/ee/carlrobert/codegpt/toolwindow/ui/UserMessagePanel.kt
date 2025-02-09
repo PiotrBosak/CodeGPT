@@ -8,6 +8,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.Project
 import com.intellij.ui.ColorUtil
 import com.intellij.ui.JBColor
+import com.intellij.ui.RoundedIcon
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
@@ -21,6 +22,7 @@ import ee.carlrobert.codegpt.toolwindow.chat.ui.ChatMessageResponseBody
 import ee.carlrobert.codegpt.toolwindow.chat.ui.ImageAccordion
 import ee.carlrobert.codegpt.toolwindow.chat.ui.SelectedFilesAccordion
 import ee.carlrobert.codegpt.ui.IconActionButton
+import java.awt.Image
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -42,14 +44,36 @@ class UserMessagePanel(
         setupResponseBody()
     }
 
+    private fun getUserIcon(): Icon {
+        try {
+            val avatarBase64 = GeneralSettings.getCurrentState().avatarBase64
+            return if (avatarBase64.isNullOrEmpty()) {
+                Icons.User
+            } else {
+                val originalIcon = ImageIcon(Base64.getDecoder().decode(avatarBase64))
+                val resizedImage = originalIcon.image.getScaledInstance(
+                    Icons.Default.iconWidth,
+                    Icons.Default.iconHeight,
+                    Image.SCALE_SMOOTH
+                )
+                RoundedIcon(resizedImage, 1.0)
+            }
+        } catch (ex: Exception) {
+            return Icons.User
+        }
+    }
+
     override fun createDisplayNameLabel(): JBLabel {
         return JBLabel(
             GeneralSettings.getCurrentState().displayName,
-            Icons.User,
+            getUserIcon(),
             SwingConstants.LEADING
         )
             .setAllowAutoWrapping(true)
             .withFont(JBFont.label().asBold())
+            .apply {
+                iconTextGap = 6
+            }
     }
 
     fun addReloadAction(onReload: Runnable) {
@@ -118,7 +142,7 @@ class UserMessagePanel(
 
     private fun setupResponseBody() {
         addContent(
-            ChatMessageResponseBody(project, false, true, false, false, parentDisposable)
+            ChatMessageResponseBody(project, true, false, false, parentDisposable)
                 .withResponse(message.prompt)
         )
     }

@@ -18,7 +18,9 @@ import com.intellij.openapi.vcs.VcsDataKeys
 import com.intellij.openapi.vcs.changes.Change
 import com.intellij.vcs.commit.CommitWorkflowUi
 import ee.carlrobert.codegpt.EncodingManager
+import ee.carlrobert.codegpt.codecompletions.CompletionProgressNotifier
 import ee.carlrobert.codegpt.completions.CompletionRequestService
+import ee.carlrobert.codegpt.toolwindow.chat.ThinkingOutputParser
 import ee.carlrobert.codegpt.ui.OverlayUtil
 import ee.carlrobert.codegpt.util.CommitWorkflowChanges
 import ee.carlrobert.codegpt.util.GitUtil.getProjectRepository
@@ -71,7 +73,6 @@ abstract class BaseCommitWorkflowAction : DumbAwareAction() {
         return ActionUpdateThread.EDT
     }
 
-
     private fun getDiff(event: AnActionEvent, project: Project): String {
         val commitWorkflowUi = event.getData(VcsDataKeys.COMMIT_WORKFLOW_UI)
             ?: throw IllegalStateException("Could not retrieve commit workflow ui.")
@@ -123,26 +124,24 @@ abstract class BaseCommitWorkflowAction : DumbAwareAction() {
 class CommitMessageEventListener(
     private val project: Project,
     private val commitWorkflowUi: CommitWorkflowUi
-) : CompletionEventListener<String?> {
-    private val messageBuilder = StringBuilder()
+) : CompletionEventListener<String> {
 
-    override fun onMessage(message: String?, eventSource: EventSource) {
-        messageBuilder.append(message)
-        updateCommitMessage(messageBuilder.toString())
+    private val messageBuilder = StringBuilder()
+    private val thinkingOutputParser = ThinkingOutputParser()
+
+    override fun onMessage(message: String, eventSource: EventSource) {
+        val processedChunk = thinkingOutputParser.processChunk(message)
+        if (processedChunk.isNotEmpty() && thinkingOutputParser.isFinished) {
+            messageBuilder.append(message)
+            updateCommitMessage(messageBuilder.toString())
+        }
     }
 
     override fun onComplete(result: StringBuilder) {
         if (messageBuilder.isEmpty()) {
             updateCommitMessage(result.toString())
         }
-    }
-
-    private fun updateCommitMessage(message: String?) {
-        ApplicationManager.getApplication().invokeLater {
-            WriteCommandAction.runWriteCommandAction(project) {
-                commitWorkflowUi.commitMessageUi.setText(message)
-            }
-        }
+        stopLoading()
     }
 
     override fun onError(error: ErrorDetails, ex: Throwable) {
@@ -154,5 +153,18 @@ class CommitMessageEventListener(
                 NotificationType.ERROR
             )
         )
+        stopLoading()
+    }
+
+    private fun stopLoading() {
+        CompletionProgressNotifier.update(project, false)
+    }
+
+    private fun updateCommitMessage(message: String?) {
+        ApplicationManager.getApplication().invokeLater {
+            WriteCommandAction.runWriteCommandAction(project) {
+                commitWorkflowUi.commitMessageUi.setText(message)
+            }
+        }
     }
 }

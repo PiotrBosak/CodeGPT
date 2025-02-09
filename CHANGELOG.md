@@ -6,6 +6,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.16.2-241.1] - 2025-02-06
+
+### Fixed
+
+- Tool window initialization race condition [#856](https://github.com/carlrobertoh/CodeGPT/issues/856)
+- Invalid OpenAI model state [#842](https://github.com/carlrobertoh/CodeGPT/issues/842)
+- Tag panel vertical alignment using GridBagLayout [#857](https://github.com/carlrobertoh/CodeGPT/issues/857)
+
+## [2.16.1-241.1] - 2025-02-04
+
+### Added
+
+- `o3-mini` model (CodeGPT, OpenAI)
+- Support for code editing and commit message generation with Deepseek R1 model [#835](https://github.com/carlrobertoh/CodeGPT/issues/835)
+- Kotlin dependency analyzer for code completions [#829](https://github.com/carlrobertoh/CodeGPT/pull/829)
+- Status toolbar completion progress for all core actions
+- Support for disabling system prompts
+- Avatar images for registered CodeGPT users
+
+### Fixed
+
+- Tool window content initialization anomalies
+- Deepseek R1 thought process parsing
+- Missing selection in final prompt [#844](https://github.com/carlrobertoh/CodeGPT/issues/844)
+
+## [2.16.0-241.1] - 2025-01-28
+
+### Added
+
+- DeepSeek V3 and R1 models (CodeGPT, Ollama and llama.cpp)
+- New 'Include Current Changes' chat action
+
+### Improved
+
+- Chat text input actions UI/UX
+
 ## [2.15.2-241.1] - 2025-01-13
 
 ### Added
@@ -859,7 +895,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `OPENAI_API_KEY` persistence, key is saved in the OS password safe from now on
 
-[Unreleased]: https://github.com/carlrobertoh/CodeGPT/compare/v2.15.2-241.1...HEAD
+[Unreleased]: https://github.com/carlrobertoh/CodeGPT/compare/v2.16.2-241.1...HEAD
+[2.16.2-241.1]: https://github.com/carlrobertoh/CodeGPT/compare/v2.16.1-241.1...v2.16.2-241.1
+[2.16.1-241.1]: https://github.com/carlrobertoh/CodeGPT/compare/v2.16.0-241.1...v2.16.1-241.1
+[2.16.0-241.1]: https://github.com/carlrobertoh/CodeGPT/compare/v2.15.2-241.1...v2.16.0-241.1
 [2.15.2-241.1]: https://github.com/carlrobertoh/CodeGPT/compare/v2.15.1-241.1...v2.15.2-241.1
 [2.15.1-241.1]: https://github.com/carlrobertoh/CodeGPT/compare/v2.15.0-241.1...v2.15.1-241.1
 [2.15.0-241.1]: https://github.com/carlrobertoh/CodeGPT/compare/v2.14.3-241.1...v2.15.0-241.1

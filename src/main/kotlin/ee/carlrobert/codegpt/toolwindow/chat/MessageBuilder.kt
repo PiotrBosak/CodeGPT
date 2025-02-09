@@ -1,26 +1,16 @@
 package ee.carlrobert.codegpt.toolwindow.chat
 
-import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
 import ee.carlrobert.codegpt.ReferencedFile
 import ee.carlrobert.codegpt.conversations.message.Message
 import ee.carlrobert.codegpt.ui.textarea.TagProcessorFactory
-import ee.carlrobert.codegpt.ui.textarea.header.HeaderTagDetails
-import ee.carlrobert.codegpt.util.EditorUtil.getSelectedEditor
+import ee.carlrobert.codegpt.ui.textarea.header.tag.TagDetails
 
 class MessageBuilder(private val project: Project, private val text: String) {
     private val message = Message("")
-    private var editorContent: String = ""
     private var inlayContent: String = ""
 
-    fun withSelectedEditorContent(): MessageBuilder {
-        getSelectedEditor(project)?.let { editor ->
-            editorContent = processEditorSelectedText(editor)
-        }
-        return this
-    }
-
-    fun withInlays(appliedTags: List<HeaderTagDetails>): MessageBuilder {
+    fun withInlays(appliedTags: List<TagDetails>): MessageBuilder {
         if (appliedTags.isNotEmpty()) {
             inlayContent = processTags(message, appliedTags)
         }
@@ -42,10 +32,6 @@ class MessageBuilder(private val project: Project, private val text: String) {
     fun build(): Message {
         message.prompt = buildString {
             append(text)
-            if (editorContent.isNotBlank()) {
-                append("\n\n")
-                append(editorContent)
-            }
             if (inlayContent.isNotBlank()) {
                 append("\n")
                 append(inlayContent)
@@ -54,20 +40,9 @@ class MessageBuilder(private val project: Project, private val text: String) {
         return message
     }
 
-    private fun processEditorSelectedText(editor: Editor): String {
-        return editor.selectionModel.selectedText?.let { selectedText ->
-            if (selectedText.isBlank()) return ""
-
-            val fileExtension = editor.virtualFile?.name?.substringAfterLast('.', "") ?: ""
-            editor.selectionModel.removeSelection()
-
-            "```$fileExtension\n$selectedText\n```"
-        } ?: ""
-    }
-
     private fun processTags(
         message: Message,
-        tags: List<HeaderTagDetails>
+        tags: List<TagDetails>
     ): String = buildString {
         tags.forEach {
             TagProcessorFactory.getProcessor(project, it).process(message, it, this)

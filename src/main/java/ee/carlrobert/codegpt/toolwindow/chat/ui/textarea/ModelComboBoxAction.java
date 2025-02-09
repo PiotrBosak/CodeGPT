@@ -18,6 +18,7 @@ import com.intellij.openapi.actionSystem.DefaultActionGroup;
 import com.intellij.openapi.actionSystem.Presentation;
 import com.intellij.openapi.actionSystem.ex.ComboBoxAction;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.project.DumbAwareAction;
 import com.intellij.openapi.project.Project;
@@ -49,6 +50,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class ModelComboBoxAction extends ComboBoxAction {
+
+  private static final Logger LOG = Logger.getInstance(ModelComboBoxAction.class);
 
   private final Consumer<ServiceType> onModelChange;
   private final Project project;
@@ -126,6 +129,7 @@ public class ModelComboBoxAction extends ComboBoxAction {
       var openaiGroup = DefaultActionGroup.createPopupGroup(() -> "OpenAI");
       openaiGroup.getTemplatePresentation().setIcon(Icons.OpenAI);
       List.of(
+              OpenAIChatCompletionModel.O_3_MINI,
               OpenAIChatCompletionModel.O_1_PREVIEW,
               OpenAIChatCompletionModel.O_1_MINI,
               OpenAIChatCompletionModel.GPT_4_O,
@@ -208,9 +212,17 @@ public class ModelComboBoxAction extends ComboBoxAction {
         break;
       case OPENAI:
         templatePresentation.setIcon(Icons.OpenAI);
-        templatePresentation.setText(
-            OpenAIChatCompletionModel.findByCode(OpenAISettings.getCurrentState().getModel())
-                .getDescription());
+
+        var selectedModel = OpenAISettings.getCurrentState().getModel();
+        try {
+          templatePresentation.setText(
+              OpenAIChatCompletionModel.findByCode(selectedModel).getDescription());
+        } catch (Exception e) {
+          LOG.error("Could find OpenAI model for code {}", e, selectedModel);
+          // TODO: Find out why another provider's model was stored in the first place
+          templatePresentation.setText(OpenAIChatCompletionModel.GPT_4_O.getDescription());
+        }
+
         break;
       case CUSTOM_OPENAI:
         templatePresentation.setIcon(Icons.OpenAI);
@@ -313,6 +325,7 @@ public class ModelComboBoxAction extends ComboBoxAction {
   }
 
   private AnAction createCodeGPTModelAction(CodeGPTModel model, Presentation comboBoxPresentation) {
+
     return createModelAction(CODEGPT, model.getName(), model.getIcon(), comboBoxPresentation,
         () -> ApplicationManager.getApplication()
             .getService(CodeGPTServiceSettings.class)

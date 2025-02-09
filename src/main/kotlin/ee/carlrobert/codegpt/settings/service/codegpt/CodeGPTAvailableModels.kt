@@ -14,46 +14,48 @@ object CodeGPTAvailableModels {
     fun getToolWindowModels(pricingPlan: PricingPlan?): List<CodeGPTModel> {
         return when (pricingPlan) {
             null, ANONYMOUS -> listOf(
-                CodeGPTModel("o1-mini", "o1-mini", Icons.OpenAI, INDIVIDUAL),
+                CodeGPTModel("o3-mini", "o3-mini", Icons.OpenAI, INDIVIDUAL),
                 CodeGPTModel("GPT-4o", "gpt-4o", Icons.OpenAI, INDIVIDUAL),
                 CodeGPTModel("Claude 3.5 Sonnet", "claude-3.5-sonnet", Icons.Anthropic, INDIVIDUAL),
+                CodeGPTModel("DeepSeek R1", "deepseek-r1", Icons.DeepSeek, INDIVIDUAL),
                 CodeGPTModel("Gemini 1.5 Pro", "gemini-pro-1.5", Icons.Google, INDIVIDUAL),
-                CodeGPTModel("Qwen 2.5 Coder (32B)", "qwen-2.5-32b-chat", Icons.Qwen, FREE),
-                CodeGPTModel("Llama 3.1 (405B)", "llama-3.1-405b", Icons.Meta, FREE),
                 CodeGPTModel("DeepSeek Coder V2 - FREE", "deepseek-coder-v2", Icons.DeepSeek, ANONYMOUS),
                 CodeGPTModel("GPT-4o mini - FREE", "gpt-4o-mini", Icons.OpenAI, ANONYMOUS),
             )
 
             FREE -> listOf(
-                CodeGPTModel("o1-mini", "o1-mini", Icons.OpenAI, INDIVIDUAL),
+                CodeGPTModel("o3-mini", "o3-mini", Icons.OpenAI, INDIVIDUAL),
                 CodeGPTModel("GPT-4o", "gpt-4o", Icons.OpenAI, INDIVIDUAL),
                 CodeGPTModel("Claude 3.5 Sonnet", "claude-3.5-sonnet", Icons.Anthropic, INDIVIDUAL),
-                CodeGPTModel("Gemini 1.5 Pro", "gemini-pro-1.5", Icons.Google, INDIVIDUAL),
+                CodeGPTModel("DeepSeek R1", "deepseek-r1", Icons.DeepSeek, INDIVIDUAL),
+                CodeGPTModel("DeepSeek V3", "deepseek-v3", Icons.DeepSeek, FREE),
                 CodeGPTModel("Qwen 2.5 Coder (32B)", "qwen-2.5-32b-chat", Icons.Qwen, FREE),
                 CodeGPTModel("Llama 3.1 (405B)", "llama-3.1-405b", Icons.Meta, FREE),
                 CodeGPTModel("DeepSeek Coder V2", "deepseek-coder-v2", Icons.DeepSeek, ANONYMOUS),
             )
 
             INDIVIDUAL -> listOf(
-                CodeGPTModel("o1-mini", "o1-mini", Icons.OpenAI, INDIVIDUAL),
+                CodeGPTModel("o3-mini", "o3-mini", Icons.OpenAI, INDIVIDUAL),
                 CodeGPTModel("GPT-4o", "gpt-4o", Icons.OpenAI, INDIVIDUAL),
                 CodeGPTModel("Claude 3.5 Sonnet", "claude-3.5-sonnet", Icons.Anthropic, INDIVIDUAL),
+                CodeGPTModel("DeepSeek R1", "deepseek-r1", Icons.DeepSeek, INDIVIDUAL),
+                CodeGPTModel("DeepSeek V3", "deepseek-v3", Icons.DeepSeek, FREE),
                 CodeGPTModel("Gemini 1.5 Pro", "gemini-pro-1.5", Icons.Google, INDIVIDUAL),
-                CodeGPTModel("Qwen 2.5 Coder (32B)", "qwen-2.5-32b-chat", Icons.Qwen, FREE),
-                CodeGPTModel("Llama 3.1 (405B)", "llama-3.1-405b", Icons.Meta, FREE),
             )
         }
     }
 
     @JvmStatic
     val ALL_CHAT_MODELS: List<CodeGPTModel> = listOf(
-        CodeGPTModel("o1-mini", "o1-mini", Icons.OpenAI, INDIVIDUAL),
+        CodeGPTModel("o3-mini", "o3-mini", Icons.OpenAI, INDIVIDUAL),
         CodeGPTModel("GPT-4o", "gpt-4o", Icons.OpenAI, INDIVIDUAL),
         CodeGPTModel("GPT-4o mini", "gpt-4o-mini", Icons.OpenAI, ANONYMOUS),
         CodeGPTModel("Claude 3.5 Sonnet", "claude-3.5-sonnet", Icons.Anthropic, INDIVIDUAL),
         CodeGPTModel("Gemini 1.5 Pro", "gemini-pro-1.5", Icons.Google, INDIVIDUAL),
         CodeGPTModel("Qwen 2.5 Coder (32B)", "qwen-2.5-32b-chat", Icons.Qwen, FREE),
         CodeGPTModel("Llama 3.1 (405B)", "llama-3.1-405b", Icons.Meta, FREE),
+        CodeGPTModel("DeepSeek R1", "deepseek-r1", Icons.DeepSeek, INDIVIDUAL),
+        CodeGPTModel("DeepSeek V3", "deepseek-v3", Icons.DeepSeek, FREE),
         CodeGPTModel("DeepSeek Coder V2", "deepseek-coder-v2", Icons.DeepSeek, FREE),
     )
 
