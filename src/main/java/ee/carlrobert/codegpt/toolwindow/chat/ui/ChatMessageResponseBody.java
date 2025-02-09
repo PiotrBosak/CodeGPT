@@ -139,9 +139,6 @@ public class ChatMessageResponseBody extends JPanel {
               return 0;
           });
       }
-      for (var item : streamParser.parse(partialMessage)) {
-          processResponse(item.response(), CODE.equals(item.type()), true);
-      }
     if (partialMessage.isEmpty()) {
       return;
     }
