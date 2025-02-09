@@ -12,12 +12,10 @@ import ee.carlrobert.codegpt.codecompletions.CompletionProgressNotifier
 import ee.carlrobert.codegpt.completions.CompletionRequestService
 import ee.carlrobert.codegpt.completions.EditCodeCompletionParameters
 import ee.carlrobert.codegpt.ui.ObservableProperties
-import ee.carlrobert.llm.completion.CompletionEventListener
 
 class EditCodeSubmissionHandler(
     private val editor: Editor,
     private val observableProperties: ObservableProperties,
-    private val listener: (TextRange) -> CompletionEventListener<String>
 ) {
 
     private val previousSourceRef = AtomicReference<String?>(null)
@@ -43,7 +41,7 @@ class EditCodeSubmissionHandler(
 
         service<CompletionRequestService>().getEditCodeCompletionAsync(
             EditCodeCompletionParameters(userPrompt, selectedText),
-            listener(selectionTextRange)
+            EditCodeCompletionListener(editor, observableProperties, selectionTextRange)
         )
     }
 

@@ -41,7 +41,8 @@ public final class ChatToolWindowContentManager {
   }
 
   public void sendMessage(Message message, ConversationType conversationType) {
-//    getToolWindow().show();
+    getToolWindow().show();
+
     var startInNewWindow = ApplicationManager.getApplication().getService(PromptsSettings.class)
         .getState()
         .getChatActions()
@@ -84,14 +85,14 @@ public final class ChatToolWindowContentManager {
   }
 
   public void displayChatTab() {
-//    var toolWindow = getToolWindow();
-//    toolWindow.show();
-//
-//    var contentManager = toolWindow.getContentManager();
-//    tryFindFirstChatTabContent().ifPresentOrElse(
-//        contentManager::setSelectedContent,
-//        () -> contentManager.setSelectedContent(requireNonNull(contentManager.getContent(0)))
-//    );
+    var toolWindow = getToolWindow();
+    toolWindow.show();
+
+    var contentManager = toolWindow.getContentManager();
+    tryFindFirstChatTabContent().ifPresentOrElse(
+        contentManager::setSelectedContent,
+        () -> contentManager.setSelectedContent(requireNonNull(contentManager.getContent(0)))
+    );
   }
 
   public Optional<ChatToolWindowTabbedPane> tryFindChatTabbedPane() {
