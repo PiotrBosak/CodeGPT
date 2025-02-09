@@ -98,6 +98,20 @@ class PredictionService {
         }
     }
 
+    fun displayInlineDiffWithString(
+        editor: Editor,
+        message: String,
+        isManuallyOpened: Boolean = false
+    ) {
+            runInEdt {
+                CodeSuggestionDiffViewer.displayInlineDiff(
+                    editor,
+                    message,
+                    isManuallyOpened
+                )
+        }
+    }
+
     private fun getPrediction(editor: Editor, request: Request): PredictionResponse? {
         editor.project?.let {
             CompletionProgressNotifier.update(it, true)
@@ -157,11 +171,11 @@ class PredictionService {
         return predictionRequest
     }
 
-    private fun createDirectPredictionRequest(editor: Editor): DirectPredictionRequest {
-        val predictionRequest = DirectPredictionRequest()
-        setDefaultParams(editor, predictionRequest)
-        return predictionRequest
-    }
+private fun createDirectPredictionRequest(editor: Editor): DirectPredictionRequest {
+    val predictionRequest = DirectPredictionRequest()
+    setDefaultParams(editor, predictionRequest)
+    return predictionRequest
+}
 
     private fun setDefaultParams(editor: Editor, request: PredictionRequest, offset: Int? = null) {
         val messages: MutableList<OpenAIChatCompletionStandardMessage> = mutableListOf()

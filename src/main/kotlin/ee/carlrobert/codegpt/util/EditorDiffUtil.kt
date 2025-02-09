@@ -48,28 +48,24 @@ object EditorDiffUtil {
                 mainDocumentContent.substring(endIndex)
     }
 
-    @JvmStatic
-    fun createDiffRequest(
-        project: Project,
-        tempFile: VirtualFile,
-        mainEditor: Editor,
-    ): SimpleDiffRequest {
-        val diffContentFactory = DiffContentFactory.getInstance()
-        val tempFileDiffContent = diffContentFactory.create(project, tempFile).apply {
+@JvmStatic
+fun createDiffRequest(
+    project: Project,
+    tempFile: VirtualFile,
+    mainEditor: Editor,
+): SimpleDiffRequest {
+    return SimpleDiffRequest(
+        CodeGPTBundle.get("editor.diff.title"),
+        DiffContentFactory.getInstance().create(project, tempFile).apply {
             putUserData(DiffUserDataKeys.FORCE_READ_ONLY, true)
-        }
-
-        return SimpleDiffRequest(
-            CodeGPTBundle.get("editor.diff.title"),
-            diffContentFactory.create(project, mainEditor.virtualFile),
-            tempFileDiffContent,
-            mainEditor.virtualFile.name,
-            CodeGPTBundle.get("editor.diff.local.content.title")
-        ).apply {
-            putUserData(
-                DiffUserDataKeys.SCROLL_TO_LINE,
-                Pair.create(Side.RIGHT, DiffUtil.getCaretPosition(mainEditor).line)
-            )
-        }
+        },
+        DiffContentFactory.getInstance().create(project, mainEditor.virtualFile),
+        CodeGPTBundle.get("editor.diff.local.content.title"),
+        mainEditor.virtualFile.name
+    ).apply {
+        putUserData(
+            DiffUserDataKeys.SCROLL_TO_LINE,
+            Pair.create(Side.RIGHT, DiffUtil.getCaretPosition(mainEditor).line)
+        )
     }
-}
+}}
