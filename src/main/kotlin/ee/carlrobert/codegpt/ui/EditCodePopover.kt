@@ -22,7 +22,6 @@ import com.intellij.ui.layout.ComponentPredicate
 import com.intellij.util.ui.AsyncProcessIcon
 import com.intellij.util.ui.JBUI
 import ee.carlrobert.codegpt.CodeGPTBundle
-import ee.carlrobert.codegpt.actions.editor.EditCodeCompletionListener
 import ee.carlrobert.codegpt.actions.editor.EditCodeSubmissionHandler
 import ee.carlrobert.codegpt.settings.GeneralSettings
 import ee.carlrobert.codegpt.toolwindow.chat.ui.textarea.ModelComboBoxAction
@@ -45,27 +44,16 @@ data class ObservableProperties(
 
 class EditCodePopover(private val editor: Editor) {
 
-    private var acceptButton: JButton? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val observableProperties = ObservableProperties()
-    private val submissionHandler = EditCodeSubmissionHandler(editor, observableProperties) { s ->
-        EditCodeCompletionListener(
-            editor,
-            observableProperties,
-            s
-        )
-    }
+    private val submissionHandler = EditCodeSubmissionHandler(editor, observableProperties)
     private val promptTextField = JBTextField("", 40).apply {
         emptyText.appendText(CodeGPTBundle.get("editCodePopover.textField.emptyText"))
         addKeyListener(object : KeyAdapter() {
             override fun keyPressed(e: KeyEvent) {
                 if (e.keyCode == KeyEvent.VK_ENTER) {
                     e.consume()
-                    if (acceptButton != null && acceptButton!!.isVisible) {
-                        acceptButton!!.doClick()
-                    } else {
-                        handleSubmit()
-                    }
+                    handleSubmit()
                 }
             }
         })
@@ -115,7 +103,6 @@ class EditCodePopover(private val editor: Editor) {
                 }
                     .visibleIf(observableProperties.submitted)
                     .enabledIf(observableProperties.loading.not())
-                    .also { c -> acceptButton = c.component }
                 cell(AsyncProcessIcon("edit_code_spinner")).visibleIf(observableProperties.loading)
                 link(CodeGPTBundle.get("shared.discard")) {
                     submissionHandler.handleReject()
