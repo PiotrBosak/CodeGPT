@@ -28,7 +28,7 @@ import kotlin.Unit;
 import java.io.File;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.swing.Timer;
+import javax.swing.*;
 
 abstract class ToolWindowCompletionResponseEventListener implements
         CompletionResponseEventListener {
@@ -71,115 +71,118 @@ abstract class ToolWindowCompletionResponseEventListener implements
     @Override
     public void handleRequestOpen() {
         try {
-            var homeDirectory = System.getProperty("user.home");
-            var file = new File(homeDirectory + "/code-gpt-output.md");
-            var documentManager = FileDocumentManager.getInstance();
-            var virtualFile = VfsUtil.findFileByIoFile(file, true);
-            ActionsKt.runReadAction(() -> {
-                assert virtualFile != null;
-                var document = documentManager.getDocument(virtualFile);
-                ActionsKt.runWriteAction(() -> {
-                    assert document != null;
-                    document.insertString(document.getTextLength(), "\n## AI\n");
-                    virtualFile.refresh(false, false);
+            SwingUtilities.invokeLater(() -> {
+                // Code that modifies UI or interacts with Swing components
+                var homeDirectory = System.getProperty("user.home");
+                var file = new File(homeDirectory + "/code-gpt-output.md");
+                var documentManager = FileDocumentManager.getInstance();
+                var virtualFile = VfsUtil.findFileByIoFile(file, true);
+                ActionsKt.runReadAction(() -> {
+                    assert virtualFile != null;
+                    var document = documentManager.getDocument(virtualFile);
+                    ActionsKt.runWriteAction(() -> {
+                        assert document != null;
+                        document.insertString(document.getTextLength(), "\n## AI\n");
+                        virtualFile.refresh(false, false);
+                        return Unit.INSTANCE;
+                    });
                     return Unit.INSTANCE;
                 });
-                return Unit.INSTANCE;
             });
         } catch (Exception e) {
         }
         updateTimer.start();
     }
 
-  @Override
-  public void handleMessage(String partialMessage) {
-    streamResponseReceived = true;
+    @Override
+    public void handleMessage(String partialMessage) {
+        streamResponseReceived = true;
 
-    try {
-      messageBuilder.append(partialMessage);
-      var ongoingTokens = encodingManager.countTokens(messageBuilder.toString());
-      messageBuffer.offer(partialMessage);
-      ApplicationManager.getApplication().invokeLater(() ->
-          totalTokensPanel.update(totalTokensPanel.getTokenDetails().getTotal() + ongoingTokens)
-      );
-    } catch (Exception e) {
-      responseContainer.displayError("Something went wrong.");
-      throw new RuntimeException("Error while updating the content", e);
-    }
-  }
-
-  @Override
-  public void handleError(ErrorDetails error, Throwable ex) {
-    ApplicationManager.getApplication().invokeLater(() -> {
-      try {
-        if ("insufficient_quota".equals(error.getCode())) {
-          responseContainer.displayQuotaExceeded();
-        } else {
-          responseContainer.displayError(error.getMessage());
+        try {
+            messageBuilder.append(partialMessage);
+            var ongoingTokens = encodingManager.countTokens(messageBuilder.toString());
+            messageBuffer.offer(partialMessage);
+            ApplicationManager.getApplication().invokeLater(() ->
+                    totalTokensPanel.update(totalTokensPanel.getTokenDetails().getTotal() + ongoingTokens)
+            );
+        } catch (Exception e) {
+            responseContainer.displayError("Something went wrong.");
+            throw new RuntimeException("Error while updating the content", e);
         }
-      } finally {
-        LOG.error(error.getMessage(), ex);
-        responsePanel.enableAllActions(true);
-        stopStreaming(responseContainer);
-      }
-    });
-  }
+    }
 
-  @Override
-  public void handleTokensExceeded(Conversation conversation, Message message) {
-    ApplicationManager.getApplication().invokeLater(() -> {
-      var answer = OverlayUtil.showTokenLimitExceededDialog();
-      if (answer == OK) {
-        TelemetryAction.IDE_ACTION.createActionMessage()
-            .property("action", "DISCARD_TOKEN_LIMIT")
-            .property("model", conversation.getModel())
-            .send();
-
-        conversationService.discardTokenLimits(conversation);
-        handleTokensExceededPolicyAccepted();
-      } else {
-        stopStreaming(responseContainer);
-      }
-    });
-  }
-
-  @Override
-  public void handleCompleted(String fullMessage, ChatCompletionParameters callParameters) {
-    conversationService.saveMessage(fullMessage, callParameters);
-
-    try {
-        var homeDirectory = System.getProperty("user.home");
-        var file = new File(homeDirectory + "/code-gpt-output.md");
-        var documentManager = FileDocumentManager.getInstance();
-        var virtualFile = VfsUtil.findFileByIoFile(file, true);
-        ActionsKt.runReadAction(() -> {
-            assert virtualFile != null;
-            var document = documentManager.getDocument(virtualFile);
-            ActionsKt.runWriteAction(() -> {
-                assert document != null;
-                document.insertString(document.getTextLength(), "\n## End AI\n");
-                virtualFile.refresh(false, false);
-                return Unit.INSTANCE;
-            });
-            return Unit.INSTANCE;
+    @Override
+    public void handleError(ErrorDetails error, Throwable ex) {
+        ApplicationManager.getApplication().invokeLater(() -> {
+            try {
+                if ("insufficient_quota".equals(error.getCode())) {
+                    responseContainer.displayQuotaExceeded();
+                } else {
+                    responseContainer.displayError(error.getMessage());
+                }
+            } finally {
+                LOG.error(error.getMessage(), ex);
+                responsePanel.enableAllActions(true);
+                stopStreaming(responseContainer);
+            }
         });
-    } catch (Exception e) {
-
     }
 
-    ApplicationManager.getApplication().invokeLater(() -> {
-      try {
-        responsePanel.enableAllActions(true);
-        if (!streamResponseReceived && !fullMessage.isEmpty()) {
-          responseContainer.withResponse(fullMessage);
+    @Override
+    public void handleTokensExceeded(Conversation conversation, Message message) {
+        ApplicationManager.getApplication().invokeLater(() -> {
+            var answer = OverlayUtil.showTokenLimitExceededDialog();
+            if (answer == OK) {
+                TelemetryAction.IDE_ACTION.createActionMessage()
+                        .property("action", "DISCARD_TOKEN_LIMIT")
+                        .property("model", conversation.getModel())
+                        .send();
+
+                conversationService.discardTokenLimits(conversation);
+                handleTokensExceededPolicyAccepted();
+            } else {
+                stopStreaming(responseContainer);
+            }
+        });
+    }
+    @Override
+    public void handleCompleted(String fullMessage, ChatCompletionParameters callParameters) {
+        conversationService.saveMessage(fullMessage, callParameters);
+        try {
+            SwingUtilities.invokeLater(() -> {
+                // Code that modifies UI or interacts with Swing components
+                var homeDirectory = System.getProperty("user.home");
+                var file = new File(homeDirectory + "/code-gpt-output.md");
+                var documentManager = FileDocumentManager.getInstance();
+                var virtualFile = VfsUtil.findFileByIoFile(file, true);
+                ActionsKt.runReadAction(() -> {
+                    assert virtualFile != null;
+                    var document = documentManager.getDocument(virtualFile);
+                    ActionsKt.runWriteAction(() -> {
+                        assert document != null;
+                        document.insertString(document.getTextLength(), "\n## End AI\n");
+                        virtualFile.refresh(false, false);
+                        return Unit.INSTANCE;
+                    });
+                    return Unit.INSTANCE;
+                });
+            });
+        } catch (Exception e) {
         }
-        totalTokensPanel.updateUserPromptTokens(textArea.getText());
-        totalTokensPanel.updateConversationTokens(callParameters.getConversation());
-      } finally {
-        stopStreaming(responseContainer);
-      }
-    });
-  }
+
+        ApplicationManager.getApplication().invokeLater(() -> {
+            try {
+                responsePanel.enableAllActions(true);
+                if (!streamResponseReceived && !fullMessage.isEmpty()) {
+                    responseContainer.withResponse(fullMessage);
+                }
+                totalTokensPanel.updateUserPromptTokens(textArea.getText());
+                totalTokensPanel.updateConversationTokens(callParameters.getConversation());
+            } finally {
+                stopStreaming(responseContainer);
+            }
+        });
+    }
 
     @Override
     public void handleCodeGPTEvent(CodeGPTEvent event) {
