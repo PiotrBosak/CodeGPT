@@ -68,111 +68,80 @@ abstract class ToolWindowCompletionResponseEventListener implements
 
     public abstract void handleTokensExceededPolicyAccepted();
 
-    @Override
-    public void handleRequestOpen() {
-        var homeDirectory = System.getProperty("user.home");
-        var file = new File(homeDirectory + "/code-gpt-output.md");
-        var documentManager = FileDocumentManager.getInstance();
-        var virtualFile = VfsUtil.findFileByIoFile(file, true);
-        ActionsKt.runReadAction(() -> {
-            assert virtualFile != null;
-            var document = documentManager.getDocument(virtualFile);
-            ActionsKt.runWriteAction(() -> {
-                assert document != null;
-                document.insertString(document.getTextLength(), "\n## AI\n");
-                virtualFile.refresh(false, false);
-                return Unit.INSTANCE;
-            });
-            return Unit.INSTANCE;
-        });
-        updateTimer.start();
+  @Override
+  public void handleRequestOpen() {
+    updateTimer.start();
+  }
+
+  @Override
+  public void handleMessage(String partialMessage) {
+    streamResponseReceived = true;
+
+    try {
+      messageBuilder.append(partialMessage);
+      var ongoingTokens = encodingManager.countTokens(messageBuilder.toString());
+      messageBuffer.offer(partialMessage);
+      ApplicationManager.getApplication().invokeLater(() ->
+          totalTokensPanel.update(totalTokensPanel.getTokenDetails().getTotal() + ongoingTokens)
+      );
+    } catch (Exception e) {
+      responseContainer.displayError("Something went wrong.");
+      throw new RuntimeException("Error while updating the content", e);
     }
+  }
 
-    @Override
-    public void handleMessage(String partialMessage) {
-        streamResponseReceived = true;
-
-        try {
-            messageBuilder.append(partialMessage);
-            var ongoingTokens = encodingManager.countTokens(messageBuilder.toString());
-            messageBuffer.offer(partialMessage);
-            ApplicationManager.getApplication().invokeLater(() ->
-                    totalTokensPanel.update(totalTokensPanel.getTokenDetails().getTotal() + ongoingTokens)
-            );
-        } catch (Exception e) {
-            responseContainer.displayError("Something went wrong.");
-            throw new RuntimeException("Error while updating the content", e);
+  @Override
+  public void handleError(ErrorDetails error, Throwable ex) {
+    ApplicationManager.getApplication().invokeLater(() -> {
+      try {
+        if ("insufficient_quota".equals(error.getCode())) {
+          responseContainer.displayQuotaExceeded();
+        } else {
+          responseContainer.displayError(error.getMessage());
         }
-    }
+      } finally {
+        LOG.error(error.getMessage(), ex);
+        responsePanel.enableAllActions(true);
+        stopStreaming(responseContainer);
+      }
+    });
+  }
 
-    @Override
-    public void handleError(ErrorDetails error, Throwable ex) {
-        ApplicationManager.getApplication().invokeLater(() -> {
-            try {
-                if ("insufficient_quota".equals(error.getCode())) {
-                    responseContainer.displayQuotaExceeded();
-                } else {
-                    responseContainer.displayError(error.getMessage());
-                }
-            } finally {
-                LOG.error(error.getMessage(), ex);
-                responsePanel.enableAllActions(true);
-                stopStreaming(responseContainer);
-            }
-        });
-    }
+  @Override
+  public void handleTokensExceeded(Conversation conversation, Message message) {
+    ApplicationManager.getApplication().invokeLater(() -> {
+      var answer = OverlayUtil.showTokenLimitExceededDialog();
+      if (answer == OK) {
+        TelemetryAction.IDE_ACTION.createActionMessage()
+            .property("action", "DISCARD_TOKEN_LIMIT")
+            .property("model", conversation.getModel())
+            .send();
 
-    @Override
-    public void handleTokensExceeded(Conversation conversation, Message message) {
-        ApplicationManager.getApplication().invokeLater(() -> {
-            var answer = OverlayUtil.showTokenLimitExceededDialog();
-            if (answer == OK) {
-                TelemetryAction.IDE_ACTION.createActionMessage()
-                        .property("action", "DISCARD_TOKEN_LIMIT")
-                        .property("model", conversation.getModel())
-                        .send();
+        conversationService.discardTokenLimits(conversation);
+        handleTokensExceededPolicyAccepted();
+      } else {
+        stopStreaming(responseContainer);
+      }
+    });
+  }
 
-                conversationService.discardTokenLimits(conversation);
-                handleTokensExceededPolicyAccepted();
-            } else {
-                stopStreaming(responseContainer);
-            }
-        });
-    }
+  @Override
+  public void handleCompleted(String fullMessage, ChatCompletionParameters callParameters) {
+    conversationService.saveMessage(fullMessage, callParameters);
 
-    @Override
-    public void handleCompleted(String fullMessage, ChatCompletionParameters callParameters) {
-        conversationService.saveMessage(fullMessage, callParameters);
-
-        var homeDirectory = System.getProperty("user.home");
-        var file = new File(homeDirectory + "/code-gpt-output.md");
-        var documentManager = FileDocumentManager.getInstance();
-        var virtualFile = VfsUtil.findFileByIoFile(file, true);
-        ActionsKt.runReadAction(() -> {
-            assert virtualFile != null;
-            var document = documentManager.getDocument(virtualFile);
-            ActionsKt.runWriteAction(() -> {
-                assert document != null;
-                document.insertString(document.getTextLength(), "\n## End AI\n");
-                virtualFile.refresh(false, false);
-                return Unit.INSTANCE;
-            });
-            return Unit.INSTANCE;
-        });
-
-        ApplicationManager.getApplication().invokeLater(() -> {
-            try {
-                responsePanel.enableAllActions(true);
-                if (!streamResponseReceived && !fullMessage.isEmpty()) {
-                    responseContainer.withResponse(fullMessage);
-                }
-                totalTokensPanel.updateUserPromptTokens(textArea.getText());
-                totalTokensPanel.updateConversationTokens(callParameters.getConversation());
-            } finally {
-                stopStreaming(responseContainer);
-            }
-        });
-    }
+    ApplicationManager.getApplication().invokeLater(() -> {
+      try {
+        responsePanel.enableAllActions(true);
+        if (!streamResponseReceived && !fullMessage.isEmpty()) {
+          responseContainer.withResponse(fullMessage);
+        }
+        totalTokensPanel.updateUserPromptTokens(textArea.getText());
+        totalTokensPanel.updateConversationTokens(callParameters.getConversation());
+      } finally {
+        stopStreaming(responseContainer);
+      }
+    });
+  }
 
     @Override
     public void handleCodeGPTEvent(CodeGPTEvent event) {
