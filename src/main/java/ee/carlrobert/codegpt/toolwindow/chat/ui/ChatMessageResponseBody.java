@@ -13,8 +13,8 @@ import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
+import com.intellij.openapi.application.ActionsKt;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.command.ActionsKt;
 import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
@@ -64,6 +64,7 @@ import javax.swing.JEditorPane;
 import javax.swing.JPanel;
 import javax.swing.JTextPane;
 
+import kotlin.Unit;
 import org.jetbrains.annotations.NotNull;
 
 public class ChatMessageResponseBody extends JPanel {
@@ -74,7 +75,7 @@ public class ChatMessageResponseBody extends JPanel {
     private final Disposable parentDisposable;
     private final StreamParser streamParser;
     private final ThinkingOutputParser thinkingOutputParser;
-  private final boolean readOnly;
+    private final boolean readOnly;
     private final DefaultListModel<WebSearchEventDetails> webpageListModel = new DefaultListModel<>();
     private final WebpageList webpageList = new WebpageList(webpageListModel);
     private final ResponseBodyProgressPanel progressPanel = new ResponseBodyProgressPanel();
@@ -88,26 +89,28 @@ public class ChatMessageResponseBody extends JPanel {
 
     public ChatMessageResponseBody(
             Project project,
-            boolean  readOnly,
+            boolean readOnly,
             boolean webSearchIncluded,
             boolean withProgress,
             Disposable parentDisposable) {
         this.project = project;
         this.parentDisposable = parentDisposable;
-        this.streamParser = new StreamParser();this.thinkingOutputParser = new ThinkingOutputParser();
+        this.streamParser = new StreamParser();
+        this.thinkingOutputParser = new ThinkingOutputParser();
         this.readOnly = readOnly;
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setOpaque(false);
 
-        if (GeneralSettings.getSelectedService() == ServiceType.CODEGPT) {if (withProgress) {
-            add(progressPanel);
-        }
+        if (GeneralSettings.getSelectedService() == ServiceType.CODEGPT) {
+            if (withProgress) {
+                add(progressPanel);
+            }
 
-        if (webSearchIncluded) {
-            webpageListPanel = createWebpageListPanel(webpageList);
-            add(webpageListPanel);
+            if (webSearchIncluded) {
+                webpageListPanel = createWebpageListPanel(webpageList);
+                add(webpageListPanel);
+            }
         }
-}
 
     }
 
@@ -125,33 +128,42 @@ public class ChatMessageResponseBody extends JPanel {
         return this;
     }
 
-  public void updateMessage(String partialMessage) {
+    public void updateMessage(String partialMessage) {
 
-      var homeDirectory = System.getProperty("user.home");
-      var file = new File(homeDirectory + "/code-gpt-output.md");
-      var documentManager = FileDocumentManager.getInstance();
-      var virtualFile = VfsUtil.findFileByIoFile(file, true);
-      var document = documentManager.getDocument(virtualFile);
-      if (document != null) {
-          com.intellij.openapi.application.ActionsKt.runUndoTransparentWriteAction(() -> {
-              document.insertString(document.getTextLength(), partialMessage);
-              virtualFile.refresh(false, false);
-              return 0;
-          });
-      }
-    if (partialMessage.isEmpty()) {
-      return;
-    }
+        var homeDirectory = System.getProperty("user.home");
+        var file = new File(homeDirectory + "/code-gpt-output.md");
+        var documentManager = FileDocumentManager.getInstance();
+        var virtualFile = VfsUtil.findFileByIoFile(file, true);
+        try {
+            com.intellij.openapi.application.ActionsKt.invokeLater(null, () -> {
+                ActionsKt.runUndoTransparentWriteAction(() -> {
+                    var document = documentManager.getDocument(virtualFile);
+                    if (document != null) {
+                        com.intellij.openapi.application.ActionsKt.runUndoTransparentWriteAction(() -> {
+                            document.insertString(document.getTextLength(), partialMessage);
+                            virtualFile.refresh(false, false);
+                            return 0;
+                        });
+                    }
+                    return Unit.INSTANCE;
+                });
+                return Unit.INSTANCE;
+            });
+        } catch (Exception e) {
+        }
+        if (partialMessage.isEmpty()) {
+            return;
+        }
 
-    var processedPartialMessage = processThinkingOutput(partialMessage);
-    if (processedPartialMessage.isEmpty()) {
-      return;
-    }
+        var processedPartialMessage = processThinkingOutput(partialMessage);
+        if (processedPartialMessage.isEmpty()) {
+            return;
+        }
 
-    for (var item : streamParser.parse(processedPartialMessage)) {
-      processResponse(item.response(), CODE.equals(item.type()), true);
+        for (var item : streamParser.parse(processedPartialMessage)) {
+            processResponse(item.response(), CODE.equals(item.type()), true);
+        }
     }
-  }
 
     public void displayMissingCredential() {
         ApplicationManager.getApplication().invokeLater(() -> {
@@ -262,33 +274,35 @@ public class ChatMessageResponseBody extends JPanel {
     }
 
     private String processThinkingOutput(String partialMessage) {
-    var processedChunk = thinkingOutputParser.processChunk(partialMessage);
-    var thoughtProcessPanel = getExistingThoughtProcessPanel();
+        var processedChunk = thinkingOutputParser.processChunk(partialMessage);
+        var thoughtProcessPanel = getExistingThoughtProcessPanel();
 
-    if (thinkingOutputParser.isThinking()) {
-      progressPanel.setVisible(false);
+        if (thinkingOutputParser.isThinking()) {
+            progressPanel.setVisible(false);
 
-      if (thoughtProcessPanel == null) {
-        thoughtProcessPanel = new ThoughtProcessPanel();
-        add(thoughtProcessPanel);
-      } else {
-        thoughtProcessPanel.updateText(thinkingOutputParser.getThoughtProcess());
-      }
+            if (thoughtProcessPanel == null) {
+                thoughtProcessPanel = new ThoughtProcessPanel();
+                add(thoughtProcessPanel);
+            } else {
+                thoughtProcessPanel.updateText(thinkingOutputParser.getThoughtProcess());
+            }
+        }
+
+        if (thoughtProcessPanel != null && thinkingOutputParser.isFinished()) {
+            thoughtProcessPanel.setFinished();
+        }
+
+        return processedChunk;
     }
 
-    if (thoughtProcessPanel != null && thinkingOutputParser.isFinished()) {
-      thoughtProcessPanel.setFinished();
+    private ThoughtProcessPanel getExistingThoughtProcessPanel() {
+        return (ThoughtProcessPanel) Stream.of(getComponents())
+                .filter(it -> it instanceof ThoughtProcessPanel)
+                .findFirst()
+                .orElse(null);
     }
 
-    return processedChunk;
-  }
-
-  private ThoughtProcessPanel getExistingThoughtProcessPanel() {
-    return (ThoughtProcessPanel) Stream.of(getComponents())
-        .filter(it -> it instanceof ThoughtProcessPanel)
-        .findFirst()
-        .orElse(null);
-  }private void processResponse(String markdownInput, boolean codeResponse, boolean caretVisible) {
+    private void processResponse(String markdownInput, boolean codeResponse, boolean caretVisible) {
         if (codeResponse) {
             processCode(markdownInput);
         } else {

@@ -71,25 +71,25 @@ abstract class ToolWindowCompletionResponseEventListener implements
     @Override
     public void handleRequestOpen() {
         try {
-            SwingUtilities.invokeLater(() -> {
-                // Code that modifies UI or interacts with Swing components
-                var homeDirectory = System.getProperty("user.home");
-                var file = new File(homeDirectory + "/code-gpt-output.md");
-                var documentManager = FileDocumentManager.getInstance();
-                var virtualFile = VfsUtil.findFileByIoFile(file, true);
-                ActionsKt.runReadAction(() -> {
+            // Code that modifies UI or interacts with Swing components
+            var homeDirectory = System.getProperty("user.home");
+            var file = new File(homeDirectory + "/code-gpt-output.md");
+            var documentManager = FileDocumentManager.getInstance();
+            var virtualFile = VfsUtil.findFileByIoFile(file, true);
+            ActionsKt.invokeLater(null, () -> {
+                ActionsKt.runUndoTransparentWriteAction(() -> {
                     assert virtualFile != null;
                     var document = documentManager.getDocument(virtualFile);
-                    ActionsKt.runWriteAction(() -> {
-                        assert document != null;
-                        document.insertString(document.getTextLength(), "\n## AI\n");
-                        virtualFile.refresh(false, false);
-                        return Unit.INSTANCE;
-                    });
+                    assert document != null;
+                    document.insertString(document.getTextLength(), "\n## AI\n");
+                    virtualFile.refresh(false, false);
                     return Unit.INSTANCE;
                 });
+                return Unit.INSTANCE;
             });
         } catch (Exception e) {
+            System.out.println("AAA");
+            System.out.println(e.getMessage());
         }
         updateTimer.start();
     }
@@ -145,31 +145,10 @@ abstract class ToolWindowCompletionResponseEventListener implements
             }
         });
     }
+
     @Override
     public void handleCompleted(String fullMessage, ChatCompletionParameters callParameters) {
         conversationService.saveMessage(fullMessage, callParameters);
-        try {
-            SwingUtilities.invokeLater(() -> {
-                // Code that modifies UI or interacts with Swing components
-                var homeDirectory = System.getProperty("user.home");
-                var file = new File(homeDirectory + "/code-gpt-output.md");
-                var documentManager = FileDocumentManager.getInstance();
-                var virtualFile = VfsUtil.findFileByIoFile(file, true);
-                ActionsKt.runReadAction(() -> {
-                    assert virtualFile != null;
-                    var document = documentManager.getDocument(virtualFile);
-                    ActionsKt.runWriteAction(() -> {
-                        assert document != null;
-                        document.insertString(document.getTextLength(), "\n## End AI\n");
-                        virtualFile.refresh(false, false);
-                        return Unit.INSTANCE;
-                    });
-                    return Unit.INSTANCE;
-                });
-            });
-        } catch (Exception e) {
-        }
-
         ApplicationManager.getApplication().invokeLater(() -> {
             try {
                 responsePanel.enableAllActions(true);
@@ -181,6 +160,8 @@ abstract class ToolWindowCompletionResponseEventListener implements
             } finally {
                 stopStreaming(responseContainer);
             }
+
+
         });
     }
 
@@ -193,6 +174,26 @@ abstract class ToolWindowCompletionResponseEventListener implements
         if (messageBuffer.isEmpty()) {
             if (stopped) {
                 updateTimer.stop();
+                try {
+                    var homeDirectory = System.getProperty("user.home");
+                    var file = new File(homeDirectory + "/code-gpt-output.md");
+                    var documentManager = FileDocumentManager.getInstance();
+                    var virtualFile = VfsUtil.findFileByIoFile(file, true);
+                    ActionsKt.invokeLater(null, () -> {
+                        ActionsKt.runUndoTransparentWriteAction(() -> {
+                            assert virtualFile != null;
+                            var document = documentManager.getDocument(virtualFile);
+                            assert document != null;
+                            document.insertString(document.getTextLength(), "\n## End AI\n");
+                            virtualFile.refresh(false, false);
+                            return Unit.INSTANCE;
+                        });
+                        return Unit.INSTANCE;
+                    });
+                } catch (Exception e) {
+                    System.out.println("BBB");
+                    System.out.println(e.getMessage());
+                }
             }
             return;
         }

@@ -45,7 +45,7 @@ public class MyAskQuestionAction extends BaseEditorAction {
             if(lastQueryEnd == -1) {
                 lastQueryEnd = 0;
             }
-            var query = text.substring(lastQueryEnd, document.getTextLength());
+            var query = text.substring(lastQueryEnd + "## End AI".length(), document.getTextLength());
             if (query != null && !query.isEmpty()) {
                 var fileExtension = FileUtil.getFileExtension(editor.getVirtualFile().getName());
                 var dialog = new CustomPromptDialog(previousUserPrompt);
