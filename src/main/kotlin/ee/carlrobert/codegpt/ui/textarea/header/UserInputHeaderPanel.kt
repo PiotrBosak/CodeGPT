@@ -81,12 +81,14 @@ class UserInputHeaderPanel(
         val selectedTags = tagManager.getTags().filter { it.selected }.toMutableList()
 
         val selectedFile = getSelectedFile()
-        if (selectedFileTagPanel.isVisible && selectedFileTagPanel.tagDetails.selected && selectedFile != null) {
+        if (selectedFileTagPanel.isVisible && selectedFileTagPanel.isSelected && selectedFile != null) {
             selectedTags.add(FileTagDetails(selectedFile))
         }
 
         (selectionTagPanel.tagDetails as? SelectionTagDetails)?.let {
-            selectedTags.add(it)
+            if (!it.selectedText.isNullOrEmpty()) {
+                selectedTags.add(it)
+            }
         }
 
         return selectedTags
@@ -306,10 +308,8 @@ class UserInputHeaderPanel(
     private inner class IncludedFilesListener : IncludeFilesInContextNotifier {
         override fun filesIncluded(includedFiles: MutableList<VirtualFile>) {
             includedFiles
-                .filterNot { tagManager.isFileTagExists(it) }
-                .forEach {
-                    tagManager.addTag(FileTagDetails(it))
-                }
+                .filterNot { tagManager.isFileTagExists(it) || getSelectedFile() == it }
+                .forEach { tagManager.addTag(FileTagDetails(it)) }
         }
     }
 }
